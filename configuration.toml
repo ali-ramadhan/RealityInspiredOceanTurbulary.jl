@@ -1,0 +1,9 @@
+[directories]
+ecco_data_dir = "/storage6/alir/ecco4v4"
+figures_dir = "/storage6/alir/RealityInspiredOceanTurbulary"
+
+[site]
+latitude = -50
+longitude = 30
+start = 2013-10-15
+end = 2013-10-30
