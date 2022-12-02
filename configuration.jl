@@ -16,7 +16,7 @@ config = Dict(
         :latitude => -50,
         :longitude => 30,
         :start_date => Date(2014, 01, 01),
-        :end_date => Date(2014, 12, 31)
+        :end_date => Date(2014, 01, 31)
     )
 
 )

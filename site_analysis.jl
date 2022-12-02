@@ -78,25 +78,32 @@ function plot_site_forcing(site; resolution=(1920, 1080), filepath=joinpath(conf
     title = "Site analysis @ ($(lat)°N, $(lon)°E)"
     # Label(fig[0, :], title, textsize=30)
 
+    days = 0:length(site["time"])-1
+    ndays = length(days)
+
     ax1 = Axis(fig[1, 1], ylabel="EXFtau")
-    lines!(ax1, 1:length(site["time"]), site["EXFtaue"], linewidth=3, label="tau east")
-    lines!(ax1, 1:length(site["time"]), site["EXFtaun"], linewidth=3, label="tau north")
-    xlims!(ax1, (1, length(site["time"])))
+    lines!(ax1, days, site["EXFtaue"], linewidth=3, label="tau east")
+    lines!(ax1, days, site["EXFtaun"], linewidth=3, label="tau north")
+    xlims!(ax1, (0, ndays))
     hidexdecorations!(ax1, grid=false)
 
     ax2 = Axis(fig[2, 1], ylabel="TFLUX (W/m²)")
-    lines!(ax2, 1:length(site["time"]), site["TFLUX"], linewidth=3)
-    xlims!(ax2, (1, length(site["time"])))
+    lines!(ax2, days, site["TFLUX"], linewidth=3)
+    xlims!(ax2, (0, ndays))
     hidexdecorations!(ax2, grid=false)
 
     ax3 = Axis(fig[3, 1], ylabel="SFLUX (g/m²/s)")
-    lines!(ax3, 1:length(site["time"]), site["SFLUX"], linewidth=3)
-    xlims!(ax3, (1, length(site["time"])))
+    lines!(ax3, days, site["SFLUX"], linewidth=3)
+    xlims!(ax3, (0, ndays))
     hidexdecorations!(ax3, grid=false)
 
     ax4 = Axis(fig[4, 1], xlabel="Time", ylabel="MXLDEPTH (m)", yreversed=true)
-    lines!(ax4, 1:length(site["time"]), site["MXLDEPTH"], linewidth=3)
-    xlims!(ax4, (1, length(site["time"])))
+    lines!(ax4, days, site["MXLDEPTH"], linewidth=3)
+    xlims!(ax4, (0, ndays))
+
+    ax4.xtickformat = ds -> [Dates.format(site["time"][1] + Day(d), "YYYY-mm-dd") for d in ds]
+    ax4.xticklabelrotation = π/4
+    ax4.xticklabelalign = (:right, :center)
 
     linkxaxes!(ax1, ax2, ax3, ax4)
 
@@ -209,6 +216,8 @@ function _geostrophic_base_state(site, date)
     ∂B∂x_site = replace(∂B∂x_site, NaN => 0)
     ∂B∂y_site = replace(∂B∂y_site, NaN => 0)
 
+    land_points = ismissing.(site["EVEL"][:, 1])
+
     Δz = grid.Δzᵃᵃᶜ[1:grid.Nz]
     ∫dz_∂B∂x = cumsum(∂B∂x_site .* Δz)
     ∫dz_∂B∂y = cumsum(∂B∂y_site .* Δz)
@@ -217,19 +226,25 @@ function _geostrophic_base_state(site, date)
     U_geo = -1/f * ∫dz_∂B∂y
     V_geo =  1/f * ∫dz_∂B∂x
 
+    U_geo[land_points] .= NaN
+    V_geo[land_points] .= NaN
+
+    U_geo = replace(U_geo, NaN => missing)
+    V_geo = replace(V_geo, NaN => missing)
+
     return U_geo, V_geo
 end
 
 function geostrophic_base_state(site)
-    Nz, Nt = size(site["EVEL"])
-    U_geo = zeros(Nz, Nt)
-    V_geo = zeros(Nz, Nt)
+    U_geo = similar(site["EVEL"])
+    V_geo = similar(site["NVEL"])
 
+    Nt = length(site["time"])
     prog = Progress(Nt, desc="Diagnosing geostrophic base state...", showspeed=true)
     for (n, date) in enumerate(site["time"])
         U_geo_day, V_geo_day = _geostrophic_base_state(site, date)
-        U_geo[:, n] = U_geo_day
-        V_geo[:, n] = V_geo_day
+        U_geo[:, n] .= U_geo_day
+        V_geo[:, n] .= V_geo_day
         next!(prog, showvalues=[(:date, date)])
     end
 
@@ -252,7 +267,7 @@ function gather_site_data(;
     site["longitude"] = site_lon
 
     dsU1 = ecco_dataset("EVEL", start_date)
-    site["z"] = dsU1["Z"][:]
+    site["z"] = reverse(dsU1["Z"][:])
 
     ecco_vars = ["EXFtaue", "EXFtaun", "TFLUX", "SFLUX", "MXLDEPTH", "EVEL", "NVEL", "THETA", "SALT", "RHOAnoma"]
 
