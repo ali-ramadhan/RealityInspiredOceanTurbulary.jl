@@ -83,6 +83,19 @@ function ecco_grid(ds)
     return grid
 end
 
+function ecco_vertical_grid()
+    ds = ecco_dataset("EVEL", Date(2013, 01, 01))
+
+    topology = (Flat, Flat, Bounded)
+
+    z_faces = ds["Z_bnds"][:] |> unique |> sort
+    Nz = length(z_faces) - 1
+
+    grid = RectilinearGrid(size=Nz, z=z_faces, topology=topology, halo=1)
+
+    return grid
+end
+
 function _geostrophic_base_state(site, date)
     g = config[:constants][:gravitational_acceleration]
     ρ₀ = config[:constants][:ecco_reference_density]
