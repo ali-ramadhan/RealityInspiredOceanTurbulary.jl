@@ -98,7 +98,7 @@ end
 
 function _geostrophic_base_state(site, date)
     g = config[:constants][:gravitational_acceleration]
-    ρ₀ = config[:constants][:ecco_reference_density]
+    ρ₀ = config[:constants][:reference_density_ecco]
     Ω = config[:constants][:rotation_rate]
 
     lat = site["latitude"]

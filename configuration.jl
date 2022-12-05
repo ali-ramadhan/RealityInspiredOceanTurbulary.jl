@@ -9,9 +9,14 @@ config = Dict(
     ),
 
     :constants => Dict(
+        :rotation_rate => 7.2921e-5,
         :gravitational_acceleration => 9.81,
-        :ecco_reference_density => 1029,
-        :rotation_rate => 7.2921e-5
+
+        # Reference density of seawater [kg/m³] used by ECCO's equation of state.
+        :reference_density_ecco => 1029,
+
+        # Specific heat capacity of seawater at constant pressure [J/(kg·K)].
+        :specific_heat_capacity_seawater => 4000
     ),
 
     :site => Dict(
