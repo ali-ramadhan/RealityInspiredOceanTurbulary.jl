@@ -5,7 +5,7 @@ config = Dict(
     :directories => Dict(
         :ecco_data_dir => "/storage6/alir/ecco4v4",
         :figures_dir => "/storage6/alir/RealityInspiredOceanTurbulary/site_South_of_Durban/figures",
-        :simulation_output_dir => "/storage6/alir/RealityInspiredOceanTurbulary/site_South_of_Durban/data",
+        :simulation_output_dir => "/storage6/alir/RealityInspiredOceanTurbulary/site_South_of_Durban_cpu_test/data",
     ),
 
     :constants => Dict(
@@ -30,9 +30,9 @@ config = Dict(
     :architecture => CPU(),
 
     :grid => Dict(
-        :Nx => 128,
-        :Ny => 128,
-        :Nz => 128,
+        :Nx => 32,
+        :Ny => 32,
+        :Nz => 32,
         :Lx => 500,
         :Ly => 500,
         :Lz => 500

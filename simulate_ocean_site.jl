@@ -85,11 +85,11 @@ ecco_zgrid = ecco_vertical_grid()
 
 @info "Forcing mean-flow interactions..."
 
-@inline _U_geo(x, y, z, t) = ℑU_geo(z, t)
-@inline _V_geo(x, y, z, t) = ℑV_geo(z, t)
+@inline _U_geo(x, y, z, t, p) = p.ℑU_geo(z, t)
+@inline _V_geo(x, y, z, t, p) = p.ℑV_geo(z, t)
 
-U_geo = BackgroundField(_U_geo)
-V_geo = BackgroundField(_V_geo)
+U_geo = BackgroundField(_U_geo, parameters=(; ℑU_geo))
+V_geo = BackgroundField(_V_geo, parameters=(; ℑV_geo))
 
 background_fields = (u=U_geo, v=V_geo)
 
@@ -103,15 +103,15 @@ background_fields = (u=U_geo, v=V_geo)
 ρ₀ = config[:constants][:reference_density_ecco]
 cₚ = config[:constants][:specific_heat_capacity_seawater]
 
-@inline    wind_stress_x(x, y, t) =   ℑτx(t) / ρ₀
-@inline    wind_stress_y(x, y, t) =   ℑτy(t) / ρ₀
-@inline temperature_flux(x, y, t) = - ℑQΘ(t) / ρ₀ / cₚ
-@inline        salt_flux(x, y, t) =   ℑQS(t) / ρ₀
+@inline    wind_stress_x(x, y, t, p) =   p.ℑτx(t) / p.ρ₀
+@inline    wind_stress_y(x, y, t, p) =   p.ℑτy(t) / p.ρ₀
+@inline temperature_flux(x, y, t, p) = - p.ℑQΘ(t) / p.ρ₀ / p.cₚ
+@inline        salt_flux(x, y, t, p) =   p.ℑQS(t) / p.ρ₀
 
-u_wind_stress_bc = FluxBoundaryCondition(wind_stress_x)
-v_wind_stress_bc = FluxBoundaryCondition(wind_stress_y)
-T_surface_flux_bc = FluxBoundaryCondition(temperature_flux)
-S_surface_flux_bc = FluxBoundaryCondition(salt_flux)
+u_wind_stress_bc = FluxBoundaryCondition(wind_stress_x, parameters=(; ℑτx, ρ₀))
+v_wind_stress_bc = FluxBoundaryCondition(wind_stress_y, parameters=(; ℑτy, ρ₀))
+T_surface_flux_bc = FluxBoundaryCondition(temperature_flux, parameters=(; ℑQΘ, ρ₀, cₚ))
+S_surface_flux_bc = FluxBoundaryCondition(salt_flux, parameters=(; ℑQS, ρ₀))
 
 u_bcs = FieldBoundaryConditions(top=u_wind_stress_bc)
 v_bcs = FieldBoundaryConditions(top=v_wind_stress_bc)
@@ -125,8 +125,9 @@ boundary_conditions = (u=u_bcs, v=v_bcs, T=T_bcs, S=S_bcs)
 
 model = NonhydrostaticModel(
     grid = grid,
+    # clock = Clock(time=DateTime(config[:site][:start_date])),
     timestepper = :RungeKutta3,
-    advection = architecture isa CPU ? UpwindBiasedThirdOrder() : WENO5(),
+    advection = architecture isa CPU ? UpwindBiasedThirdOrder() : WENO(),
     background_fields = background_fields,
     buoyancy = SeawaterBuoyancy(equation_of_state=TEOS10EquationOfState()),
     tracers = (:T, :S),
@@ -140,23 +141,23 @@ model = NonhydrostaticModel(
 
 @info "Initializing site..."
 
+ℑΘ_cpu = interpolate_profile(site["THETA"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
+ℑS_cpu = interpolate_profile(site["SALT"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
+
 ε(σ) = σ * randn() # noise
 
 U₀(x, y, z) = 0
 V₀(x, y, z) = 0
 W₀(x, y, z) = ε(1e-10)
-Θ₀(x, y, z) = ℑΘ(z, 0)
-S₀(x, y, z) = ℑS(z, 0)
+Θ₀(x, y, z) = ℑΘ_cpu(z, 0)
+S₀(x, y, z) = ℑS_cpu(z, 0)
 
 set!(model, u=U₀, v=V₀, w=W₀, T=Θ₀, S=S₀)
 
 
 @info "Spinning up the simulation..."
 
-Δt₀ = 1seconds
-stop_time = 1days
-
-simulation = Simulation(model, Δt=Δt₀, stop_time=stop_time)
+simulation = Simulation(model, Δt=1seconds, stop_time=1days)
 
 wizard = TimeStepWizard(cfl=0.5, diffusive_cfl=0.25, max_Δt=1minutes, min_Δt=1e-3*seconds)
 simulation.callbacks[:wizard] = Callback(wizard, IterationInterval(10))

@@ -1,3 +1,8 @@
+using Printf
+using Statistics
+
+using Dates: format
+
 mutable struct SimulationProgressMessenger{T, F} <: Function
       wall_time₀ :: T  # Wall time at simulation start
       wall_time⁻ :: T  # Wall time at previous calback
@@ -16,9 +21,6 @@ function (pm::SimulationProgressMessenger)(simulation)
     model = simulation.model
     i, t = model.clock.iteration, model.clock.time
     iteration_interval = simulation.callbacks[:progress].schedule.interval
-
-    # Avoid dividing by progress = 0 on iteration 0.
-    i == 0 && return nothing
 
     if !isnothing(pm.cfl_tapering)
         wizard = simulation.callbacks[:wizard].func
@@ -39,8 +41,6 @@ function (pm::SimulationProgressMessenger)(simulation)
 
     progress = t / simulation.stop_time
     current_wall_time = 1e-9 * time_ns() - pm.wall_time₀
-    ETA = (1 - progress) / progress * (current_wall_time - pm.compile_time)
-    ETA_datetime = now() + Second(round(Int, ETA))
 
     time_since_last_callback = 1e-9 * time_ns() - pm.wall_time⁻
     wall_time_per_step = time_since_last_callback / iteration_interval
@@ -65,6 +65,8 @@ function (pm::SimulationProgressMessenger)(simulation)
 
     # ETA calculation only accurate after 2 iteration intervals.
     if i >= 2iteration_interval
+        ETA = (1 - progress) / progress * (current_wall_time - pm.compile_time)
+        ETA_datetime = now() + Second(round(Int, ETA))
         eta_msg = @sprintf(", ETA: %s (%s)", format(ETA_datetime, "yyyy-mm-dd HH:MM:SS"), prettytime(ETA))
         msg_line1 *= eta_msg
     end
