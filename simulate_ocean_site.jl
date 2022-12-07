@@ -20,12 +20,13 @@ include("ocean_site_analysis.jl")
 include("interpolated_profiles.jl")
 include("interpolate_ecco_data.jl")
 include("progress_messenger.jl")
+include("mixed_layer_depth.jl")
 include("plot_les_solution.jl")
 
 
 @info "Summoning ECCO data and diagnosing geostrophic background state..."
 
-# site = gather_site_data()
+site = gather_site_data()
 
 if config[:plot_site_forcing]
     @info "Plotting site surface forcing..."
@@ -87,6 +88,7 @@ ecco_zgrid = ecco_vertical_grid()
 ℑτy_cpu = interpolate_ecco_timeseries(site, site["EXFtaun"], ArrayType=Array{Float64})
 ℑQΘ_cpu = interpolate_ecco_timeseries(site, site["TFLUX"], ArrayType=Array{Float64})
 ℑQS_cpu = interpolate_ecco_timeseries(site, site["SFLUX"], ArrayType=Array{Float64})
+ℑmld_cpu = interpolate_ecco_timeseries(site, site["MXLDEPTH"], ArrayType=Array{Float64})
 
 ℑU_cpu = interpolate_profile(site["EVEL"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
 ℑV_cpu = interpolate_profile(site["NVEL"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
@@ -184,41 +186,11 @@ mkpath(simulation_output_dir)
 b = BuoyancyField(model)
 output_fields = merge(model.velocities, model.tracers, (; b))
 
-profiles = (
-    U = Average(model.velocities.u, dims=(1, 2)),
-    V = Average(model.velocities.v, dims=(1, 2)),
-    T = Average(model.tracers.T, dims=(1, 2)),
-    S = Average(model.tracers.S, dims=(1, 2)),
-    B = Average(b, dims=(1, 2))
-)
-
-large_scale_outputs = (
-    τx = model -> ℑτx_cpu(model.clock.time),
-    τy = model -> ℑτy_cpu(model.clock.time),
-    QΘ = model -> ℑQΘ_cpu(model.clock.time),
-    QS = model -> ℑQS_cpu(model.clock.time),
-     U = model -> ℑU_cpu.(znodes(Center, model.grid)[:], model.clock.time),
-     V = model -> ℑV_cpu.(znodes(Center, model.grid)[:], model.clock.time),
-     T = model -> ℑΘ_cpu.(znodes(Center, model.grid)[:], model.clock.time),
-     S = model -> ℑS_cpu.(znodes(Center, model.grid)[:], model.clock.time),
-    U_geo = model -> ℑU_geo_cpu.(znodes(Center, model.grid)[:], model.clock.time),
-    V_geo = model -> ℑV_geo_cpu.(znodes(Center, model.grid)[:], model.clock.time)
-)
-
 simulation.output_writers[:fields] =
     JLD2OutputWriter(model, output_fields;
         dir = simulation_output_dir,
         schedule = TimeInterval(1hours),
         filename = "ocean_site_fields.jld2",
-        with_halos = true,
-        overwrite_existing = true
-    )
-
-simulation.output_writers[:profiles] =
-    JLD2OutputWriter(model, profiles;
-        dir = simulation_output_dir,
-        filename = "ocean_site_profiles.jld2",
-        schedule = TimeInterval(10minutes),
         with_halos = true,
         overwrite_existing = true
     )
@@ -233,19 +205,28 @@ simulation.output_writers[:surface] =
         overwrite_existing = true
     )
 
-simulation.output_writers[:large_scale] =
-    JLD2OutputWriter(model, large_scale_outputs;
-        dir = simulation_output_dir,
-        filename = "ocean_site_large_scale.jld2",
-        schedule = TimeInterval(10minutes),
-        overwrite_existing = true
-    )
-
 simulation.output_writers[:checkpointer] =
     Checkpointer(model;
         dir = simulation_output_dir,
         prefix = "model_checkpoint",
         schedule = TimeInterval(5days)
+    )
+
+profiles = (
+    U = Average(model.velocities.u, dims=(1, 2)),
+    V = Average(model.velocities.v, dims=(1, 2)),
+    T = Average(model.tracers.T, dims=(1, 2)),
+    S = Average(model.tracers.S, dims=(1, 2)),
+    B = Average(b, dims=(1, 2))
+)
+
+simulation.output_writers[:profiles] =
+    JLD2OutputWriter(model, profiles;
+        dir = simulation_output_dir,
+        filename = "ocean_site_profiles.jld2",
+        schedule = TimeInterval(10minutes),
+        with_halos = true,
+        overwrite_existing = true
     )
 
 large_scale_outputs = Dict(
@@ -258,7 +239,9 @@ large_scale_outputs = Dict(
         "T" => model -> ℑΘ_cpu.(znodes(Center, model.grid)[:], model.clock.time),
         "S" => model -> ℑS_cpu.(znodes(Center, model.grid)[:], model.clock.time),
     "U_geo" => model -> ℑU_geo_cpu.(znodes(Center, model.grid)[:], model.clock.time),
-    "V_geo" => model -> ℑV_geo_cpu.(znodes(Center, model.grid)[:], model.clock.time)
+    "V_geo" => model -> ℑV_geo_cpu.(znodes(Center, model.grid)[:], model.clock.time),
+    "mld_ECCO" => model -> ℑmld_cpu(model.clock.time),
+    "mld_LES" => model -> mixed_layer_depth(model)
 )
 
 large_scale_dims = Dict(
@@ -272,6 +255,8 @@ large_scale_dims = Dict(
         "S" => ("zC",),
     "U_geo" => ("zC",),
     "V_geo" => ("zC",),
+    "mld_ECCO" => (),
+    "mld_LES" => (),
 )
 
 simulation.output_writers[:large_scale_nc] =

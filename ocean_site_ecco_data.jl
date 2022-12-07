@@ -4,8 +4,6 @@ using ProgressMeter
 using NCDatasets
 using Oceananigans
 
-using Oceananigans: @compute
-
 config_file = ARGS[1]
 include(config_file)
 
