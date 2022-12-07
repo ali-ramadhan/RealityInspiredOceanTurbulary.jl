@@ -52,7 +52,9 @@ end
 function ecco_state(var, lat, lon, date)
     ds = ecco_dataset(var, date)
     idx_lat, idx_lon = ecco_indices(ds, lat, lon)
-    return _ecco_state(ds, var, idx_lat, idx_lon)
+    state = _ecco_state(ds, var, idx_lat, idx_lon)
+    close(ds)
+    return state
 end
 
 function ecco_state_timeseries(var, lat, lon, start_date, end_date)
@@ -90,6 +92,8 @@ function ecco_vertical_grid()
     Nz = length(z_faces) - 1
 
     grid = RectilinearGrid(size=Nz, z=z_faces, topology=topology, halo=1)
+
+    close(ds)
 
     return grid
 end
@@ -138,6 +142,8 @@ function _geostrophic_base_state(site, date)
     U_geo = replace(U_geo, NaN => missing)
     V_geo = replace(V_geo, NaN => missing)
 
+    close(ds)
+
     return U_geo, V_geo
 end
 
@@ -174,6 +180,7 @@ function gather_site_data(;
 
     dsU1 = ecco_dataset("EVEL", start_date)
     site["z"] = reverse(dsU1["Z"][:])
+    close(dsU1)
 
     ecco_vars = ["EXFtaue", "EXFtaun", "TFLUX", "SFLUX", "MXLDEPTH", "EVEL", "NVEL", "THETA", "SALT", "RHOAnoma"]
 
