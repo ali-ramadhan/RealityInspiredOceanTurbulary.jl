@@ -2,31 +2,10 @@ using Oceananigans
 
 using Oceananigans.Utils: prettytime
 
-function experiment_name(config; prefix, postfix="", overwrite_existing=false)
-    s = prefix
-
-    s *= "_" * replace(prettytime(config[:stop_time]), " " => "")
-    s *= postfix
-
-    if isdir(s) && !overwrite_existing
-        n = 2
-        while isdir(s * string(n))
-            n = n + 1
-        end
-        s *= string(n)
-    end
-
-    mkpath(s)
-
-    return s
-end
-
 config = Dict(
 
     :directories => Dict(
-        :ecco_data_dir => "/storage6/alir/ecco4v4",
-        :figures_dir => "/storage6/alir/RealityInspiredOceanTurbulary/site_South_of_Durban_gpu_test4/figures",
-        :simulation_output_dir => "/storage6/alir/RealityInspiredOceanTurbulary/site_South_of_Durban_gpu_test4/data",
+        :ecco_data_dir => "/storage6/alir/ecco4v4"
     ),
 
     :constants => Dict(
@@ -45,7 +24,7 @@ config = Dict(
         :latitude => -35,
         :longitude => 32,
         :start_date => Date(2014, 01, 01),
-        :end_date => Date(2014, 12, 31)
+        :end_date => Date(2014, 01, 31)
     ),
 
     :architecture => GPU(),
@@ -62,3 +41,40 @@ config = Dict(
     :plot_site_forcing => true,
     :animate_site_profiles => true
 )
+
+# Determine ouptut directories
+
+__BASE_OUTPUT_DIR = "/storage6/alir/RealityInspiredOceanTurbulary"
+
+function experiment_dir(config; prefix="", postfix="", base_dir=__BASE_OUTPUT_DIR, overwrite_existing=false)
+    s = prefix
+
+    site_name = config[:site][:name]
+    site_lat = config[:site][:latitude]
+    site_lon = config[:site][:longitude]
+    site_start = format(config[:site][:start_date], "YYYY-mm-dd")
+    site_end = format(config[:site][:end_date], "YYYY-mm-dd")
+
+    s *= "$(site_name)_lat$(site_lat)_lon$(site_lon)_$(site_start)_to_$(site_end)"
+
+    s *= postfix
+
+    dir = joinpath(base_dir, s)
+
+    if isdir(dir) && !overwrite_existing
+        n = 2
+        while isdir(dir * string(n))
+            n = n + 1
+        end
+        dir *= string(n)
+    end
+
+    mkpath(dir)
+
+    return dir
+end
+
+__output_dir = joinpath(__BASE_OUTPUT_DIR, experiment_dir(config, postfix="_test_gpu"))
+
+config[:directories][:figures_dir] = joinpath(__output_dir, "figures")
+config[:directories][:simulation_output_dir] = joinpath(__output_dir, "data")

@@ -1,8 +1,8 @@
-using Oceananigans: @compute
+using Oceananigans: @compute, znode
 
 function mixed_layer_depth(model)
     b = BuoyancyField(model)
-    @compute ∂b̄∂z = Field(Average(∂z(b), dims=(1, 2)))
+    @compute ∂b̄∂z = Field(Average(Oceananigans.∂z(b), dims=(1, 2)))
 
     _, I_ml = findmax(abs.(interior(∂b̄∂z)))
 

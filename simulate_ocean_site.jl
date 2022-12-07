@@ -10,10 +10,10 @@ using CUDA: CuArray
 using Oceananigans.Architectures: array_type
 using Oceananigans.BuoyancyModels: BuoyancyField
 
+Logging.global_logger(OceananigansLogger())
+
 config_file = ARGS[1]
 include(config_file)
-
-Logging.global_logger(OceananigansLogger())
 
 include("ocean_site_ecco_data.jl")
 include("ocean_site_analysis.jl")
