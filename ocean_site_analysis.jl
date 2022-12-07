@@ -16,7 +16,7 @@ function plot_site_forcing(site; resolution=(1920, 1080), filepath=joinpath(conf
     lat = site["latitude"]
     lon = site["longitude"]
     title = "Site analysis @ ($(lat)°N, $(lon)°E)"
-    # Label(fig[0, :], title, textsize=30)
+    # Label(fig[0, :], title, fontsize=30)
 
     days = 0:length(site["time"])-1
     ndays = length(days)
@@ -104,7 +104,7 @@ function animate_site_profiles(site; resolution=(1920, 1080), framerate=15, file
 
     linkyaxes!(ax1, ax2, ax3, ax4, ax5)
 
-    Label(fig[0, :], title, textsize=30)
+    Label(fig[0, :], title, fontsize=30)
 
     mkpath(dirname(filepath))
     prog = Progress(length(frames), desc="Animating $filepath...", showspeed=true)

@@ -57,12 +57,12 @@ Adapt.adapt_structure(to, profile::InterpolatedTimeSeries) =
 ##### Linear interpolated for regularly spaced profile time series, e.g. T(z, t).
 #####
 
-struct InterpolatedProfileTimeSeries{D, Z, T, ΔZ, ΔT, M}
+struct InterpolatedProfileTimeSeries{D, Z, T, M}
      data :: D
         z :: Z
         t :: T
-       Δz :: ΔZ # M
-       Δt :: ΔT # M
+       Δz :: M
+       Δt :: M
     z_max :: M
     t_max :: M
 end

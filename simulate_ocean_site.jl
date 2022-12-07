@@ -2,12 +2,11 @@ using Logging
 using Printf
 using Dates
 
-using CUDA
-
 using Oceananigans
 using Oceananigans.Units
 using SeawaterPolynomials.TEOS10
 
+using CUDA: CuArray
 using Oceananigans.Architectures: array_type
 using Oceananigans.BuoyancyModels: BuoyancyField
 
@@ -21,7 +20,7 @@ include("ocean_site_analysis.jl")
 include("interpolated_profiles.jl")
 include("interpolate_ecco_data.jl")
 include("progress_messenger.jl")
-include("experiment_name.jl")
+include("plot_les_solution.jl")
 
 
 @info "Summoning ECCO data and diagnosing geostrophic background state..."
@@ -82,6 +81,19 @@ ecco_zgrid = ecco_vertical_grid()
 ℑU_geo = interpolate_profile(site["U_geo"], site["time"], ecco_zgrid, regular_zgrid; ArrayType)
 ℑV_geo = interpolate_profile(site["V_geo"], site["time"], ecco_zgrid, regular_zgrid; ArrayType)
 
+# We use interpolated profiles on the CPU to set! field initial conditions and output to disk.
+
+ℑτx_cpu = interpolate_ecco_timeseries(site, site["EXFtaue"], ArrayType=Array{Float64})
+ℑτy_cpu = interpolate_ecco_timeseries(site, site["EXFtaun"], ArrayType=Array{Float64})
+ℑQΘ_cpu = interpolate_ecco_timeseries(site, site["TFLUX"], ArrayType=Array{Float64})
+ℑQS_cpu = interpolate_ecco_timeseries(site, site["SFLUX"], ArrayType=Array{Float64})
+
+ℑU_cpu = interpolate_profile(site["EVEL"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
+ℑV_cpu = interpolate_profile(site["NVEL"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
+ℑΘ_cpu = interpolate_profile(site["THETA"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
+ℑS_cpu = interpolate_profile(site["SALT"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
+ℑU_geo_cpu = interpolate_profile(site["U_geo"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
+ℑV_geo_cpu = interpolate_profile(site["V_geo"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
 
 @info "Forcing mean-flow interactions..."
 
@@ -141,9 +153,6 @@ model = NonhydrostaticModel(
 
 @info "Initializing site..."
 
-ℑΘ_cpu = interpolate_profile(site["THETA"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
-ℑS_cpu = interpolate_profile(site["SALT"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
-
 ε(σ) = σ * randn() # noise
 
 U₀(x, y, z) = 0
@@ -184,10 +193,16 @@ profiles = (
 )
 
 large_scale_outputs = (
-    τx = model -> ℑτx(model.clock.time),
-    τy = model -> ℑτy(model.clock.time),
-    QΘ = model -> ℑQΘ(model.clock.time),
-    QS = model -> ℑQS(model.clock.time),
+    τx = model -> ℑτx_cpu(model.clock.time),
+    τy = model -> ℑτy_cpu(model.clock.time),
+    QΘ = model -> ℑQΘ_cpu(model.clock.time),
+    QS = model -> ℑQS_cpu(model.clock.time),
+     U = model -> ℑU_cpu.(znodes(Center, model.grid)[:], model.clock.time),
+     V = model -> ℑV_cpu.(znodes(Center, model.grid)[:], model.clock.time),
+     T = model -> ℑΘ_cpu.(znodes(Center, model.grid)[:], model.clock.time),
+     S = model -> ℑS_cpu.(znodes(Center, model.grid)[:], model.clock.time),
+    U_geo = model -> ℑU_geo_cpu.(znodes(Center, model.grid)[:], model.clock.time),
+    V_geo = model -> ℑV_geo_cpu.(znodes(Center, model.grid)[:], model.clock.time)
 )
 
 simulation.output_writers[:fields] =
@@ -211,10 +226,18 @@ simulation.output_writers[:profiles] =
 simulation.output_writers[:surface] =
     JLD2OutputWriter(model, output_fields;
         dir = simulation_output_dir,
-        filename = "ocean_site_surface.nc",
+        filename = "ocean_site_surface.jld2",
         indices = (:, :, Nz),
         schedule = TimeInterval(10minutes),
         with_halos = true,
+        overwrite_existing = true
+    )
+
+simulation.output_writers[:large_scale] =
+    JLD2OutputWriter(model, large_scale_outputs;
+        dir = simulation_output_dir,
+        filename = "ocean_site_large_scale.jld2",
+        schedule = TimeInterval(10minutes),
         overwrite_existing = true
     )
 
@@ -224,6 +247,41 @@ simulation.output_writers[:checkpointer] =
         prefix = "model_checkpoint",
         schedule = TimeInterval(5days)
     )
+
+large_scale_outputs = Dict(
+       "τx" => model -> ℑτx_cpu(model.clock.time),
+       "τy" => model -> ℑτy_cpu(model.clock.time),
+       "QΘ" => model -> ℑQΘ_cpu(model.clock.time),
+       "QS" => model -> ℑQS_cpu(model.clock.time),
+        "U" => model -> ℑU_cpu.(znodes(Center, model.grid)[:], model.clock.time),
+        "V" => model -> ℑV_cpu.(znodes(Center, model.grid)[:], model.clock.time),
+        "T" => model -> ℑΘ_cpu.(znodes(Center, model.grid)[:], model.clock.time),
+        "S" => model -> ℑS_cpu.(znodes(Center, model.grid)[:], model.clock.time),
+    "U_geo" => model -> ℑU_geo_cpu.(znodes(Center, model.grid)[:], model.clock.time),
+    "V_geo" => model -> ℑV_geo_cpu.(znodes(Center, model.grid)[:], model.clock.time)
+)
+
+large_scale_dims = Dict(
+       "τx" => (),
+       "τy" => (),
+       "QΘ" => (),
+       "QS" => (),
+        "U" => ("zC",),
+        "V" => ("zC",),
+        "T" => ("zC",),
+        "S" => ("zC",),
+    "U_geo" => ("zC",),
+    "V_geo" => ("zC",),
+)
+
+simulation.output_writers[:large_scale_nc] =
+    NetCDFOutputWriter(model, large_scale_outputs;
+        dir = simulation_output_dir,
+        filename = "ocean_site_large_scale.nc",
+        schedule = TimeInterval(10minutes),
+        dimensions = large_scale_dims
+    )
+
 
 
 wave = raw"""
@@ -260,3 +318,6 @@ print(fish)
 @info "Teaching the simulation to run!..."
 
 run!(simulation)
+
+ds_profiles = FieldDataset(simulation.output_writers[:profiles].filepath)
+animate_les_profiles(ds_profiles)
