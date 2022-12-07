@@ -87,7 +87,7 @@ ecco_zgrid = ecco_vertical_grid()
 ℑτx_cpu = interpolate_ecco_timeseries(site, site["EXFtaue"], ArrayType=Array{Float64})
 ℑτy_cpu = interpolate_ecco_timeseries(site, site["EXFtaun"], ArrayType=Array{Float64})
 ℑQΘ_cpu = interpolate_ecco_timeseries(site, site["TFLUX"], ArrayType=Array{Float64})
-ℑQS_cpu = interpolate_ecco_timeseries(site, site["oceFWflx"], ArrayType=Array{Float64})
+ℑQS_cpu = interpolate_ecco_timeseries(site, site["EXFempmr"], ArrayType=Array{Float64})
 ℑmld_cpu = interpolate_ecco_timeseries(site, site["MXLDEPTH"], ArrayType=Array{Float64})
 
 ℑU_cpu = interpolate_profile(site["EVEL"], site["time"], ecco_zgrid, regular_zgrid, ArrayType=Array{Float64})
@@ -116,16 +116,17 @@ background_fields = (u=U_geo, v=V_geo)
 
 ρ₀ = config[:constants][:reference_density_ecco]
 cₚ = config[:constants][:specific_heat_capacity_seawater]
+S₀ = config[:constants][:reference_salinity]
 
 @inline    wind_stress_x(x, y, t, p) =   p.ℑτx(t) / p.ρ₀
 @inline    wind_stress_y(x, y, t, p) =   p.ℑτy(t) / p.ρ₀
 @inline temperature_flux(x, y, t, p) = - p.ℑQΘ(t) / p.ρ₀ / p.cₚ
-@inline        salt_flux(x, y, t, p) =   p.ℑQS(t) / p.ρ₀
+@inline        salt_flux(x, y, t, p) =   p.ℑQS(t) * p.S₀
 
 u_wind_stress_bc = FluxBoundaryCondition(wind_stress_x, parameters=(; ℑτx, ρ₀))
 v_wind_stress_bc = FluxBoundaryCondition(wind_stress_y, parameters=(; ℑτy, ρ₀))
 T_surface_flux_bc = FluxBoundaryCondition(temperature_flux, parameters=(; ℑQΘ, ρ₀, cₚ))
-S_surface_flux_bc = FluxBoundaryCondition(salt_flux, parameters=(; ℑQS, ρ₀))
+S_surface_flux_bc = FluxBoundaryCondition(salt_flux, parameters=(; ℑQS, S₀))
 
 u_bcs = FieldBoundaryConditions(top=u_wind_stress_bc)
 v_bcs = FieldBoundaryConditions(top=v_wind_stress_bc)

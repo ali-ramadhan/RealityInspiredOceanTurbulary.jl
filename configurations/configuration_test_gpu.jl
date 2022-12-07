@@ -1,5 +1,6 @@
 using Oceananigans
 
+using Dates: format
 using Oceananigans.Utils: prettytime
 
 config = Dict(
@@ -16,7 +17,10 @@ config = Dict(
         :reference_density_ecco => 1029,
 
         # Specific heat capacity of seawater at constant pressure [J/(kg·K)].
-        :specific_heat_capacity_seawater => 4000
+        :specific_heat_capacity_seawater => 4000,
+
+        # Reference salinity [psu] used to compute the salt flux from E - P - R.
+        :reference_salinity = 40
     ),
 
     :site => Dict(

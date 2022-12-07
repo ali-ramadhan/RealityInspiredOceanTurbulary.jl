@@ -19,23 +19,23 @@ function plot_site_forcing(site; resolution=(1920, 1080), filepath=joinpath(conf
     days = 0:length(site["time"])-1
     ndays = length(days)
 
-    ax1 = Axis(fig[1, 1], ylabel="EXFtau")
-    lines!(ax1, days, site["EXFtaue"], linewidth=3, label="tau east")
-    lines!(ax1, days, site["EXFtaun"], linewidth=3, label="tau north")
+    ax1 = Axis(fig[1, 1], ylabel="Wind stress")
+    lines!(ax1, days, site["EXFtaue"], linewidth=3, label="τx (east)")
+    lines!(ax1, days, site["EXFtaun"], linewidth=3, label="τy (north)")
     xlims!(ax1, (0, ndays))
     hidexdecorations!(ax1, grid=false)
 
-    ax2 = Axis(fig[2, 1], ylabel="TFLUX (W/m²)")
+    ax2 = Axis(fig[2, 1], ylabel="Surface heat flux (W/m²)")
     lines!(ax2, days, site["TFLUX"], linewidth=3)
     xlims!(ax2, (0, ndays))
     hidexdecorations!(ax2, grid=false)
 
-    ax3 = Axis(fig[3, 1], ylabel="SFLUX (g/m²/s)")
-    lines!(ax3, days, site["SFLUX"], linewidth=3)
+    ax3 = Axis(fig[3, 1], ylabel="E - P - R (m/s)")
+    lines!(ax3, days, site["oceFWflx"], linewidth=3)
     xlims!(ax3, (0, ndays))
     hidexdecorations!(ax3, grid=false)
 
-    ax4 = Axis(fig[4, 1], xlabel="Time", ylabel="MXLDEPTH (m)", yreversed=true)
+    ax4 = Axis(fig[4, 1], xlabel="Time", ylabel="Mixed layer depth (m)", yreversed=true)
     lines!(ax4, days, site["MXLDEPTH"], linewidth=3)
     xlims!(ax4, (0, ndays))
 
