@@ -29,7 +29,7 @@ function ecco_dataset(var, date; dir=config[:directories][:ecco_data_dir])
     filename = @match var begin
         "EXFtaue" || "EXFtaun" => "OCEAN_AND_ICE_SURFACE_STRESS_day_mean_$(datestr)_ECCO_V4r4_latlon_0p50deg.nc"
         "TFLUX" => "OCEAN_AND_ICE_SURFACE_HEAT_FLUX_day_mean_$(datestr)_ECCO_V4r4_latlon_0p50deg.nc"
-        "SFLUX" => "OCEAN_AND_ICE_SURFACE_FW_FLUX_day_mean_$(datestr)_ECCO_V4r4_latlon_0p50deg.nc"
+        "SFLUX" || "oceFWflx" => "OCEAN_AND_ICE_SURFACE_FW_FLUX_day_mean_$(datestr)_ECCO_V4r4_latlon_0p50deg.nc"
         "MXLDEPTH" => "OCEAN_MIXED_LAYER_DEPTH_day_mean_$(datestr)_ECCO_V4r4_latlon_0p50deg.nc"
         "EVEL" || "NVEL" || "WVEL" => "OCEAN_VELOCITY_day_mean_$(datestr)_ECCO_V4r4_latlon_0p50deg.nc"
         "THETA" || "SALT" => "OCEAN_TEMPERATURE_SALINITY_day_mean_$(datestr)_ECCO_V4r4_latlon_0p50deg.nc"
@@ -42,7 +42,7 @@ end
 
 function _ecco_state(ds, var, idx_lat, idx_lon)
     return @match var begin
-        "EXFtaue" || "EXFtaun" || "TFLUX" || "SFLUX" || "MXLDEPTH" => ds[var][idx_lon, idx_lat, 1]
+        "EXFtaue" || "EXFtaun" || "TFLUX" || "SFLUX" || "oceFWflx" || "MXLDEPTH" => ds[var][idx_lon, idx_lat, 1]
 
         # Reverse the vertical profile so increasing the index increases the vertical coordinate (Oceananigans convention).
         "EVEL" || "NVEL" || "WVEL" || "THETA" || "SALT" || "RHOAnoma" => reverse(ds[var][idx_lon, idx_lat, :, 1])
@@ -182,7 +182,7 @@ function gather_site_data(;
     site["z"] = reverse(dsU1["Z"][:])
     close(dsU1)
 
-    ecco_vars = ["EXFtaue", "EXFtaun", "TFLUX", "SFLUX", "MXLDEPTH", "EVEL", "NVEL", "THETA", "SALT", "RHOAnoma"]
+    ecco_vars = ["EXFtaue", "EXFtaun", "TFLUX", "oceFWflx", "MXLDEPTH", "EVEL", "NVEL", "THETA", "SALT", "RHOAnoma"]
 
     for var in ecco_vars
         site[var] = concat_vectors(ecco_state_timeseries(var, site_lat, site_lon, start_date, end_date))
